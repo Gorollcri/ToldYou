@@ -26,10 +26,14 @@ def init_db() -> None:
                 username=settings.admin_username,
                 password_hash=get_password_hash(settings.admin_password),
                 nickname=settings.admin_nickname,
+                bio="System administrator",
                 role="admin",
                 status="active",
             )
             db.add(admin)
+        else:
+            admin.role = "admin"
+            admin.status = "active"
 
         for key, fallback in DEFAULT_SITE_CONFIGS.items():
             existing = db.scalar(select(SiteConfig).where(SiteConfig.key == key))

@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, Field
 
 from app.schemas.common import ORMModel
@@ -18,5 +20,7 @@ class UserProfile(ORMModel):
     username: str
     nickname: str
     avatar: str | None = None
+    bio: str | None = None
     role: str
     status: str
+    last_login_at: datetime | None = None

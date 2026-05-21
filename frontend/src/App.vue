@@ -10,7 +10,7 @@ import AdminSite from './pages/AdminSite.vue'
 import PublicSite from './pages/PublicSite.vue'
 
 const app = useBlogApp()
-const { route, theme } = app
+const { currentUser, isAdmin, route, theme } = app
 
 provide(blogAppKey, app)
 </script>
@@ -21,10 +21,10 @@ provide(blogAppKey, app)
     <div class="aurora aurora-b"></div>
     <div class="aurora aurora-c"></div>
 
-    <AppHeader />
-    <PublicSite v-if="route.name !== 'admin'" />
-    <AdminSite v-else />
-    <AppFooter v-if="route.name !== 'admin'" />
+    <AppHeader v-if="currentUser && route.name !== 'admin'" />
+    <AdminSite v-if="route.name === 'admin' && isAdmin" />
+    <PublicSite v-else />
+    <AppFooter v-if="currentUser && route.name !== 'admin' && route.name !== 'login'" />
     <ToastMessage />
   </div>
 </template>

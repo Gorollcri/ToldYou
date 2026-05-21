@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.api.deps import require_admin
+from app.api.deps import get_current_user, require_admin
 from app.db.session import get_db
 from app.models import User
 from app.schemas.article import ArticleCreate, ArticleDetail, ArticleListItem, ArticleUpdate
@@ -27,6 +27,7 @@ def get_articles(
     category: str | None = None,
     tag: str | None = None,
     keyword: str | None = None,
+    _: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     total, items = list_articles(
@@ -41,7 +42,7 @@ def get_articles(
 
 
 @public_router.get("/articles/{slug}", response_model=ArticleDetail)
-def get_article(slug: str, db: Session = Depends(get_db)):
+def get_article(slug: str, _: User = Depends(get_current_user), db: Session = Depends(get_db)):
     article = get_article_by_slug(db, slug)
     if article is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Article not found")

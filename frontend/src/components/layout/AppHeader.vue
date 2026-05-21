@@ -2,7 +2,7 @@
 import { useBlogAppContext } from '../../appContext'
 
 const app = useBlogAppContext()
-const { navigate, pageTitle, route, theme, toggleTheme } = app
+const { currentUser, isAdmin, navigate, logout, pageTitle, route, theme, toggleTheme } = app
 </script>
 
 <template>
@@ -12,17 +12,27 @@ const { navigate, pageTitle, route, theme, toggleTheme } = app
     </button>
 
     <nav class="topnav">
-      <button :class="{ active: route.name === 'home' }" @click="navigate('/')">首页</button>
+      <button :class="{ active: route.name === 'home' }" @click="navigate('/')">Home</button>
       <button :class="{ active: route.name === 'articles' || route.name === 'article-detail' }" @click="navigate('/articles')">
-        帖子
+        Articles
       </button>
-      <button :class="{ active: route.name === 'projects' }" @click="navigate('/projects')">项目</button>
-      <button :class="{ active: route.name === 'about' }" @click="navigate('/about')">关于我</button>
-      <!-- <button :class="{ active: route.name === 'admin' }" @click="navigate('/admin')">Admin</button> -->
+      <button :class="{ active: route.name === 'projects' }" @click="navigate('/projects')">Projects</button>
+      <button :class="{ active: route.name === 'about' }" @click="navigate('/about')">About</button>
+      <button
+        :class="{ active: route.name === 'me' || route.name.startsWith('me-') }"
+        @click="navigate('/me')"
+      >
+        Me
+      </button>
+      <button v-if="isAdmin" @click="navigate('/admin')">Admin</button>
     </nav>
 
-    <button class="theme-toggle" @click="toggleTheme()">
-      {{ theme === 'light' ? '◐' : '◑' }}
-    </button>
+    <div class="hero-actions">
+      <span v-if="currentUser" class="chip">{{ currentUser.nickname }}</span>
+      <button class="btn btn-secondary" @click="logout">Logout</button>
+      <button class="theme-toggle" @click="toggleTheme()">
+        {{ theme === 'light' ? 'Moon' : 'Sun' }}
+      </button>
+    </div>
   </header>
 </template>

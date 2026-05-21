@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
-from app.models import Article, Category, Tag
+from app.models import Article, Category, Tag, User
 from app.schemas.article import ArticleCreate, ArticleUpdate
 from app.utils.slug import make_slug
 
@@ -88,10 +88,14 @@ def soft_delete_article(db: Session, article: Article) -> None:
     db.commit()
 
 
+def can_manage_article(current_user: User, article: Article) -> bool:
+    return current_user.role == "admin" or article.author_id == current_user.id
+
+
 def get_article_by_id(db: Session, article_id: int) -> Article | None:
     stmt = (
         select(Article)
-        .options(joinedload(Article.category), joinedload(Article.tags))
+        .options(joinedload(Article.author), joinedload(Article.category), joinedload(Article.tags))
         .where(Article.id == article_id)
     )
     return db.execute(stmt).unique().scalar_one_or_none()
@@ -100,7 +104,7 @@ def get_article_by_id(db: Session, article_id: int) -> Article | None:
 def get_article_by_slug(db: Session, slug: str, include_unpublished: bool = False) -> Article | None:
     stmt = (
         select(Article)
-        .options(joinedload(Article.category), joinedload(Article.tags))
+        .options(joinedload(Article.author), joinedload(Article.category), joinedload(Article.tags))
         .where(Article.slug == slug)
     )
     if not include_unpublished:
@@ -122,8 +126,10 @@ def list_articles(
     tag_slug: str | None = None,
     keyword: str | None = None,
     admin_mode: bool = False,
+    current_user: User | None = None,
+    owner_only: bool = False,
 ) -> tuple[int, list[Article]]:
-    stmt = select(Article).options(joinedload(Article.category), joinedload(Article.tags))
+    stmt = select(Article).options(joinedload(Article.author), joinedload(Article.category), joinedload(Article.tags))
     count_stmt = select(func.count(Article.id))
 
     if not admin_mode:
@@ -146,6 +152,10 @@ def list_articles(
         filters = or_(Article.title.ilike(keyword_expr), Article.summary.ilike(keyword_expr))
         stmt = stmt.where(filters)
         count_stmt = count_stmt.where(filters)
+
+    if owner_only and current_user is not None:
+        stmt = stmt.where(Article.author_id == current_user.id)
+        count_stmt = count_stmt.where(Article.author_id == current_user.id)
 
     total = db.scalar(count_stmt) or 0
     items = list(

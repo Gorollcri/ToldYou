@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 from app.schemas.category import CategoryRead
 from app.schemas.common import ORMModel
 from app.schemas.tag import TagRead
+from app.schemas.user import ArticleAuthor
 
 
 class ArticleBase(BaseModel):
@@ -47,6 +48,7 @@ class ArticleListItem(ORMModel):
     is_top: bool
     is_featured: bool
     view_count: int
+    author: ArticleAuthor
     category: CategoryRead | None = None
     tags: list[TagRead] = Field(default_factory=list)
     created_at: datetime

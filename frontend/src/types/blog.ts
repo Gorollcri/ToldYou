@@ -12,6 +12,13 @@ export type Tag = {
   slug: string
 }
 
+export type ArticleAuthor = {
+  id: number
+  username: string
+  nickname: string
+  avatar: string | null
+}
+
 export type Article = {
   id: number
   title: string
@@ -23,6 +30,7 @@ export type Article = {
   is_top: boolean
   is_featured: boolean
   view_count: number
+  author: ArticleAuthor
   category: Category | null
   tags: Tag[]
   created_at: string
@@ -42,8 +50,15 @@ export type UserProfile = {
   username: string
   nickname: string
   avatar: string | null
+  bio: string | null
   role: string
   status: string
+  last_login_at: string | null
+}
+
+export type UserRecord = UserProfile & {
+  created_at: string
+  updated_at: string
 }
 
 export type PaginatedResponse<T> = {
@@ -64,12 +79,27 @@ export type Media = {
   created_at: string
 }
 
-export type RouteName = 'home' | 'articles' | 'article-detail' | 'projects' | 'about' | 'admin'
+export type RouteName =
+  | 'login'
+  | 'home'
+  | 'articles'
+  | 'article-detail'
+  | 'projects'
+  | 'about'
+  | 'me'
+  | 'me-profile'
+  | 'me-password'
+  | 'me-articles'
+  | 'me-article-detail'
+  | 'me-article-new'
+  | 'admin'
 
 export type RouteInfo = {
   name: RouteName
   path: string
   slug?: string
+  articleId?: number
+  userId?: number
   segments: string[]
 }
 
