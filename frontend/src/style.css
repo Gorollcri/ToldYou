@@ -28,11 +28,22 @@
 
 html {
   scroll-behavior: smooth;
+  scrollbar-width: none;
 }
 
 body {
   margin: 0;
   min-width: 320px;
+  -ms-overflow-style: none;
+}
+
+body.transition-lock {
+  overflow: hidden;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none;
 }
 
 body,

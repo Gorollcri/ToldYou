@@ -22,6 +22,7 @@ export function useBlogApp() {
   const busy = ref(false)
   const toast = ref('')
   const authReady = ref(false)
+  const suppressLoginRedirect = ref(false)
   const publicLoading = ref(false)
   const articleLoading = ref(false)
   const adminLoading = ref(false)
@@ -346,7 +347,12 @@ export function useBlogApp() {
     syncProfileForm()
   }
 
-  async function login() {
+  function setLoginRedirectSuppressed(value: boolean) {
+    suppressLoginRedirect.value = value
+  }
+
+  async function login(options: { redirect?: boolean } = {}) {
+    const { redirect = true } = options
     busy.value = true
     try {
       const result = await apiFetch<{ access_token: string; token_type: string }>('/api/auth/login', {
@@ -357,10 +363,14 @@ export function useBlogApp() {
       localStorage.setItem(TOKEN_KEY, result.access_token)
       await loadCurrentUser()
       await loadPublicData()
-      navigate('/')
+      if (redirect) {
+        navigate('/')
+      }
       showToast('Signed in successfully')
+      return true
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Sign in failed')
+      return false
     } finally {
       busy.value = false
     }
@@ -808,6 +818,7 @@ export function useBlogApp() {
     }
 
     if (route.value.name === 'login') {
+      if (suppressLoginRedirect.value) return
       navigate('/')
       return
     }
@@ -998,6 +1009,7 @@ export function useBlogApp() {
     saveArticle,
     saveSiteSettings,
     setPublicFilter,
+    setLoginRedirectSuppressed,
     showToast,
     siteConfigs,
     siteSettingsForm,

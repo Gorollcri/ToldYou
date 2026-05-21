@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { nextTick, onMounted, onUnmounted, ref, unref } from 'vue'
+
 import { useBlogAppContext } from '../appContext'
 import { formatDate, getReadMinutes, renderMarkdown } from '../utils/content'
 
@@ -48,10 +50,199 @@ const {
   totalPublicPages,
   updateMyProfile,
 } = app
+
+const showLoginTransition = ref(false)
+const canvasRef = ref<HTMLCanvasElement | null>(null)
+const fadeRef = ref<HTMLDivElement | null>(null)
+const glowRef = ref<HTMLDivElement | null>(null)
+
+let animationId = 0
+let startTime = 0
+let ctx: CanvasRenderingContext2D | null = null
+let canvasWidth = 0
+let canvasHeight = 0
+let fontSize = 0
+let hasNavigatedToHome = false
+
+function getTransitionLabel() {
+  const label = `${unref(pageTitle) || 'ToldYou'}`.trim()
+  return label.slice(0, 18)
+}
+
+function initCanvas() {
+  const canvas = canvasRef.value
+  if (!canvas) return
+
+  const dpr = window.devicePixelRatio || 1
+  canvasWidth = window.innerWidth
+  canvasHeight = window.innerHeight
+  canvas.width = canvasWidth * dpr
+  canvas.height = canvasHeight * dpr
+  canvas.style.width = `${canvasWidth}px`
+  canvas.style.height = `${canvasHeight}px`
+
+  ctx = canvas.getContext('2d')
+  if (!ctx) return
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0)
+  ctx.scale(dpr, dpr)
+  fontSize = Math.min(canvasWidth * 0.1, canvasHeight * 0.2)
+}
+
+function easeInOutCubic(value: number) {
+  return value < 0.5 ? 4 * value * value * value : 1 - Math.pow(-2 * value + 2, 3) / 2
+}
+
+function drawMaskText(label: string, y: number) {
+  if (!ctx) return
+  ctx.fillStyle = '#ffffff'
+  ctx.font = `900 ${fontSize}px "Georgia", "Times New Roman", serif`
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText(label, canvasWidth / 2, y)
+}
+
+function drawTransition(elapsed: number) {
+  if (!ctx) return
+
+  const w = canvasWidth
+  const h = canvasHeight
+  const halfH = h / 2
+  const label = getTransitionLabel()
+
+  let maskTop = 0
+  let maskBottom = h
+  let fadeOpacity = 0
+  let glowOpacity = 0
+  let topTextY = h / 2
+  let bottomTextY = h / 2
+
+  if (!hasNavigatedToHome && elapsed >= 800) {
+    hasNavigatedToHome = true
+    navigate('/')
+  }
+
+  if (elapsed < 800) {
+    const progress = easeInOutCubic(elapsed / 800)
+    maskTop = progress * halfH
+    maskBottom = h - progress * halfH
+    fadeOpacity = 0.2 + progress * 0.68
+    glowOpacity = progress
+  } else if (elapsed < 1350) {
+    maskTop = halfH
+    maskBottom = halfH
+    fadeOpacity = 0.88
+    glowOpacity = 1
+  } else if (elapsed < 2250) {
+    const progress = easeInOutCubic((elapsed - 1350) / 900)
+    maskTop = (1 - progress) * halfH
+    maskBottom = halfH + progress * halfH
+    fadeOpacity = 0.88 * (1 - progress)
+    glowOpacity = 1 - progress
+    topTextY = maskTop - h / 2
+  } else {
+    finishLoginTransition()
+    return
+  }
+
+  if (fadeRef.value) {
+    fadeRef.value.style.opacity = `${fadeOpacity}`
+  }
+
+  if (glowRef.value) {
+    glowRef.value.style.opacity = `${glowOpacity}`
+  }
+
+  ctx.clearRect(0, 0, w, h)
+
+  if (maskTop > 0) {
+    ctx.save()
+    ctx.fillStyle = '#050816'
+    ctx.fillRect(0, 0, w, maskTop)
+    ctx.globalCompositeOperation = 'destination-out'
+    drawMaskText(label, topTextY)
+    ctx.restore()
+  }
+
+  if (maskBottom < h) {
+    ctx.save()
+    ctx.fillStyle = '#050816'
+    ctx.fillRect(0, maskBottom, w, h - maskBottom)
+    ctx.globalCompositeOperation = 'destination-out'
+    drawMaskText(label, bottomTextY)
+    ctx.restore()
+  }
+}
+
+function animateTransition(timestamp: number) {
+  drawTransition(timestamp - startTime)
+  if (showLoginTransition.value) {
+    animationId = window.requestAnimationFrame(animateTransition)
+  }
+}
+
+async function startLoginTransition() {
+  hasNavigatedToHome = false
+  showLoginTransition.value = true
+  document.body.classList.add('transition-lock')
+  await nextTick()
+  initCanvas()
+  startTime = performance.now()
+  animationId = window.requestAnimationFrame(animateTransition)
+}
+
+function stopAnimationFrame() {
+  if (animationId) {
+    window.cancelAnimationFrame(animationId)
+    animationId = 0
+  }
+}
+
+function finishLoginTransition() {
+  stopAnimationFrame()
+  showLoginTransition.value = false
+  hasNavigatedToHome = false
+  app.setLoginRedirectSuppressed(false)
+  document.body.classList.remove('transition-lock')
+}
+
+async function handleLogin() {
+  app.setLoginRedirectSuppressed(true)
+  const success = await app.login({ redirect: false })
+  if (!success) {
+    app.setLoginRedirectSuppressed(false)
+    return
+  }
+
+  await nextTick()
+  await startLoginTransition()
+}
+
+function handleResize() {
+  if (!showLoginTransition.value) return
+  initCanvas()
+}
+
+onMounted(() => {
+  window.addEventListener('resize', handleResize)
+})
+
+onUnmounted(() => {
+  stopAnimationFrame()
+  app.setLoginRedirectSuppressed(false)
+  document.body.classList.remove('transition-lock')
+  window.removeEventListener('resize', handleResize)
+})
 </script>
 
 <template>
-  <main class="main-shell">
+  <main class="main-shell" :class="{ 'main-shell-transitioning': showLoginTransition }">
+    <div v-if="showLoginTransition" class="transition-overlay" aria-hidden="true">
+      <div ref="fadeRef" class="fade-scrim"></div>
+      <div ref="glowRef" class="cutout-glow"></div>
+      <canvas ref="canvasRef" class="mask-canvas"></canvas>
+    </div>
+
     <section v-if="route.name === 'login'" class="login-shell">
       <div class="login-stage panel">
         <div class="login-art">
@@ -82,7 +273,7 @@ const {
               <span>Password</span>
               <input v-model="app.loginForm.password" type="password" autocomplete="current-password" />
             </label>
-            <button class="btn btn-primary" :disabled="busy" @click="app.login">Sign in</button>
+            <button class="btn btn-primary" :disabled="busy || showLoginTransition" @click="handleLogin">Sign in</button>
           </div>
         </div>
       </div>
@@ -482,3 +673,44 @@ const {
     </template>
   </main>
 </template>
+
+<style scoped>
+.main-shell-transitioning {
+  z-index: 100001;
+  isolation: isolate;
+}
+
+.transition-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100002;
+  pointer-events: none;
+}
+
+.fade-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  background:
+    radial-gradient(circle at 50% 40%, rgba(24, 32, 62, 0.22), transparent 42%),
+    linear-gradient(180deg, rgba(5, 8, 22, 0.84), rgba(5, 8, 22, 0.92));
+  opacity: 0;
+}
+
+.cutout-glow {
+  position: fixed;
+  inset: 0;
+  z-index: 100001;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255, 248, 230, 0.92) 0%, rgba(194, 201, 255, 0.42) 24%, rgba(67, 91, 167, 0.14) 52%, transparent 72%),
+    linear-gradient(180deg, rgba(6, 8, 18, 0.18), rgba(6, 8, 18, 0));
+  opacity: 0;
+}
+
+.mask-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 100002;
+  pointer-events: none;
+}
+</style>

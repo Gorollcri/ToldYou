@@ -21,7 +21,7 @@ provide(blogAppKey, app)
     <div class="aurora aurora-b"></div>
     <div class="aurora aurora-c"></div>
 
-    <AppHeader v-if="currentUser && route.name !== 'admin'" />
+    <AppHeader v-if="currentUser && route.name !== 'admin' && route.name !== 'login'" />
     <AdminSite v-if="route.name === 'admin' && isAdmin" />
     <PublicSite v-else />
     <AppFooter v-if="currentUser && route.name !== 'admin' && route.name !== 'login'" />
